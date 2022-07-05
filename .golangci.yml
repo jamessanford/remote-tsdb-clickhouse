@@ -1,0 +1,31 @@
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  govet:
+    check-shadowing: true
+  gofmt:
+    simplify: true
+
+linters:
+  disable-all: true
+  enable:
+    - staticcheck
+    - unused
+    - bodyclose
+    - errorlint
+    - goconst
+    - godot
+    - goimports
+    - misspell
+    - govet
+    - deadcode
+    - varcheck
+    - ineffassign
+    - structcheck
+    - unconvert
+    - errcheck
+    - govet
+    - gofmt
+    - golint
+    - gocritic
+  fast: false
