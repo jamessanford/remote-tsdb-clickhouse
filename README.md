@@ -1,6 +1,6 @@
 remote-tsdb-clickhouse is a prometheus remote writer that stores timeseries data in ClickHouse.
 
-### Create table
+### Create destination table
 
 Use `clickhouse client` to create this table:
 
@@ -108,7 +108,7 @@ promtool tsdb dump \
   --max-time=$(date -u -d '2021-12-17' +%s)000 \
   /zfs/tsdbsnap1/jsanford/prom2/bin/data \
 |  clickhouse client \
-  --query 'INSERT INTO metrics.samplesNew FORMAT TabSeparated'
+  --query 'INSERT INTO metrics.samples FORMAT TabSeparated'
 ```
 
 You may significantly speed up the bulk import by running many in parallel.
