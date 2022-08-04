@@ -56,7 +56,7 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = io.WriteString(w, "remote-clickhouse")
+		_, _ = io.WriteString(w, "remote-tsdb-clickhouse")
 		r.Body.Close()
 	})
 
