@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -62,17 +61,12 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 		var name string
 		labels := make([]string, 0, len(t.Labels))
 
-		var sb strings.Builder // NOTE: reuse with Reset!
 		for _, l := range t.Labels {
 			if l.Name == "__name__" {
 				name = l.Value
 				continue
 			}
-			sb.Reset()
-			sb.WriteString(l.Name)
-			sb.WriteString("=")
-			sb.WriteString(l.Value)
-			labels = append(labels, sb.String())
+			labels = append(labels, l.Name+"="+l.Value)
 		}
 
 		count += len(t.Samples)
