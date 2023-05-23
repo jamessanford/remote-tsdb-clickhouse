@@ -15,17 +15,19 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
 )
 
+// decodeReadLimit is the maximum size of a read request body in bytes.
+const decodeReadLimit = 32 * 1024 * 1024
+
 // DecodeWriteRequest from an io.Reader into a prompb.WriteRequest, handling
 // snappy decompression.
 func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
-	compressed, err := ioutil.ReadAll(r)
+	compressed, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +38,27 @@ func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
 	}
 
 	var req prompb.WriteRequest
+	if err := proto.Unmarshal(reqBuf, &req); err != nil {
+		return nil, err
+	}
+
+	return &req, nil
+}
+
+// DecodeReadRequest from an io.Reader into a prompb.ReadRequest, handling
+// snappy decompression.
+func DecodeReadRequest(r *http.Request) (*prompb.ReadRequest, error) {
+	compressed, err := io.ReadAll(io.LimitReader(r.Body, decodeReadLimit))
+	if err != nil {
+		return nil, err
+	}
+
+	reqBuf, err := snappy.Decode(nil, compressed)
+	if err != nil {
+		return nil, err
+	}
+
+	var req prompb.ReadRequest
 	if err := proto.Unmarshal(reqBuf, &req); err != nil {
 		return nil, err
 	}
