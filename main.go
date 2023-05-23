@@ -87,6 +87,25 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/read", func(w http.ResponseWriter, r *http.Request) {
+		// readRequestsTotal.Inc()
+		defer r.Body.Close()
+		req, err := DecodeReadRequest(r.Body)
+		if err != nil {
+			//readErrorsTotal.Inc()
+			logger.Error("DecodeReadRequest", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := ch.ReadRequest(r.Context(), req); err != nil {
+			logger.Error("ReadRequest", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, "unimplemented", http.StatusInternalServerError)
+		// samplesReadTotal.Add(XXX)
+	})
+
 	logger.Info(
 		"listening",
 		zap.String("listen", httpAddr),
