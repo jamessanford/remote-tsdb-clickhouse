@@ -26,6 +26,8 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 		return nil, fmt.Errorf("invalid table name: use non-quoted identifier")
 	}
 
+	// TODO: Move this to a separate function so that people can have control -- just pass us a clickhouse.Conn
+	// NewDefaultConnection(), NewClickhouseWriter(write.NewDefaultConnection(), table)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{address},
 		Auth: clickhouse.Auth{
@@ -84,4 +86,9 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 		}
 	}
 	return count, batch.Send()
+}
+
+func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) error {
+	fmt.Printf("ReadRequest\n%s\n", req.String())
+	return fmt.Errorf("unimplemented")
 }
