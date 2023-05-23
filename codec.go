@@ -47,8 +47,8 @@ func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
 
 // DecodeReadRequest from an io.Reader into a prompb.ReadRequest, handling
 // snappy decompression.
-func DecodeReadRequest(r *http.Request) (*prompb.ReadRequest, error) {
-	compressed, err := io.ReadAll(io.LimitReader(r.Body, decodeReadLimit))
+func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
+	compressed, err := io.ReadAll(io.LimitReader(r, decodeReadLimit))
 	if err != nil {
 		return nil, err
 	}
