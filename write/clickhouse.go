@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -17,6 +18,9 @@ var (
 )
 
 type ClickHouseWriter struct {
+	// FIXME BUG: Conn is a connection to a database. It is not used concurrently by multiple goroutines.
+	// (So, we should really open on each time, driver handles pooling)
+	// FIXME: Use clickhouse.OpenDB and save the DB here, then use PrepareContext and Exec(allrows)
 	conn  clickhouse.Conn
 	table string
 }
@@ -88,7 +92,59 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 	return count, batch.Send()
 }
 
-func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) error {
-	fmt.Printf("ReadRequest\n%s\n", req.String())
-	return fmt.Errorf("unimplemented")
+func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+	res := &prompb.ReadResponse{}
+
+	// TODO: Move to sql.DB...
+	for _, q := range req.Queries {
+		qresults := &prompb.QueryResult{}
+		res.Results = append(res.Results, qresults)
+
+		var clause []string
+
+		// FIXME: Use clauseData for the %d/%s args, remove Sprintf
+		clause = append(clause, fmt.Sprintf("updated_at >= %d", q.StartTimestampMs))
+		if q.EndTimestampMs > 0 {
+			clause = append(clause, fmt.Sprintf("updated_at <= %d", q.EndTimestampMs))
+		}
+
+		// FIXME: Use clauseData for the %d/%s args, remove Sprintf
+		for _, m := range q.Matchers {
+			if m.Type == prompb.LabelMatcher_EQ {
+				if m.Name == "__name__" {
+					clause = append(clause, fmt.Sprintf("metric_name='%s'", m.Value))
+				} else {
+					clause = append(clause, fmt.Sprintf(`has(labels, "%s=%s")`, m.Name, m.Value))
+				}
+			}
+			// for NEQ, use NOT has(labels, 'xxx')
+			// for RE, use arrayExists(match(xxx)
+			// for NRE, use arrayAll(not match(...))
+		}
+
+		rows, err := w.conn.Query(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM %s WHERE %s ORDER BY metric_name, slb, updated_at", w.table, strings.Join(clause, " AND "))
+		if err != nil {
+			return nil, err
+		}
+
+		// Use hasAll() for labels?
+
+		// CONSIDER: A way to remove selectors like "remote=clickhouse"
+		// --read.ignore-label=remote=clickhouse
+
+		// As long as metric_name and labels are the same, we can fill out a single TimeSeries
+		// and just add Samples
+		// slices.Equal
+		// (should we slices.Sort?  might be better to have clickhouse do it.  but also it might just be the same)
+		for rows.Next() {
+			rows.Scan() // ...
+			//			qresults.append(&prompb.TimeSeries{Label: [], Sample: [timestamp, value]}
+		}
+
+		if err := rows.Err(); err != nil {
+			panic(err)
+		}
+	}
+
+	return res, nil
 }
