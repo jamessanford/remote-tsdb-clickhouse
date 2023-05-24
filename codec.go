@@ -66,7 +66,7 @@ func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
 	return &req, nil
 }
 
-// EncodeReadResponse writes a remote.Response to an io.Writer
+// EncodeReadResponse writes a remote.Response to an io.Writer.
 func EncodeReadResponse(resp *prompb.ReadResponse, w io.Writer) error {
 	data, err := proto.Marshal(resp)
 	if err != nil {
