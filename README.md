@@ -6,7 +6,7 @@ Prometheus remote reader (use metrics from ClickHouse directly in Prometheus)
 ### Install
 
 ```
-go install github.com/jamessanford/remote-tsdb-exporter@latest
+go install github.com/jamessanford/remote-tsdb-clickhouse@latest
 ```
 
 ### Create destination table
