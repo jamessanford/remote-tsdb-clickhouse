@@ -34,7 +34,7 @@ func NewClickHouseAdapter(address, table string) (*ClickHouseAdapter, error) {
 			Username: "default",
 			Password: "",
 		},
-		Debug:       true,
+		Debug:       false,
 		DialTimeout: 5 * time.Second,
 		//MaxOpenConns:    16,
 		//MaxIdleConns:    1,
