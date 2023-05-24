@@ -11,44 +11,6 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 )
 
-func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
-	for _, m := range matchers {
-		if m.Name == "__name__" {
-			switch m.Type {
-			case prompb.LabelMatcher_EQ:
-				sb.Clause("metric_name=?", m.Value)
-			case prompb.LabelMatcher_NEQ:
-				sb.Clause("metric_name!=?", m.Value) // Don't do this.
-			case prompb.LabelMatcher_RE:
-				sb.Clause("match(metric_name, ?)", m.Value)
-			case prompb.LabelMatcher_NRE:
-				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
-			default:
-				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
-			}
-		} else {
-			label := m.Name + "=" + m.Value
-			switch m.Type {
-			case prompb.LabelMatcher_EQ:
-				// TODO: Convert to flag.
-				if label == "job=clickhouse" || label == "foo=bar" {
-					continue
-				}
-				sb.Clause("has(labels, ?)", label)
-			case prompb.LabelMatcher_NEQ:
-				sb.Clause("NOT has(labels, ?)", label)
-			case prompb.LabelMatcher_RE:
-				sb.Clause("arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
-			case prompb.LabelMatcher_NRE:
-				sb.Clause("NOT arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
-			default:
-				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
-			}
-		}
-	}
-	return nil
-}
-
 func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
@@ -109,4 +71,42 @@ func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadReq
 	}
 
 	return res, nil
+}
+
+func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
+	for _, m := range matchers {
+		if m.Name == "__name__" {
+			switch m.Type {
+			case prompb.LabelMatcher_EQ:
+				sb.Clause("metric_name=?", m.Value)
+			case prompb.LabelMatcher_NEQ:
+				sb.Clause("metric_name!=?", m.Value) // Don't do this.
+			case prompb.LabelMatcher_RE:
+				sb.Clause("match(metric_name, ?)", m.Value)
+			case prompb.LabelMatcher_NRE:
+				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
+			default:
+				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
+			}
+		} else {
+			label := m.Name + "=" + m.Value
+			switch m.Type {
+			case prompb.LabelMatcher_EQ:
+				// TODO: Convert to flag.
+				if label == "job=clickhouse" || label == "foo=bar" {
+					continue
+				}
+				sb.Clause("has(labels, ?)", label)
+			case prompb.LabelMatcher_NEQ:
+				sb.Clause("NOT has(labels, ?)", label)
+			case prompb.LabelMatcher_RE:
+				sb.Clause("arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+			case prompb.LabelMatcher_NRE:
+				sb.Clause("NOT arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+			default:
+				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
+			}
+		}
+	}
+	return nil
 }
