@@ -98,7 +98,7 @@ func main() {
 			return
 		}
 		res, err := ch.ReadRequest(r.Context(), req)
-                if  err != nil {
+		if err != nil {
 			logger.Error("ReadRequest", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

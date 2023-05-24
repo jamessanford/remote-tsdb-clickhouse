@@ -41,7 +41,7 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 			Username: "default",
 			Password: "",
 		},
-		Debug: false,
+		Debug:       false,
 		DialTimeout: 5 * time.Second,
 		//		MaxOpenConns:    16,
 		//		MaxIdleConns:    1,
