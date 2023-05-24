@@ -36,9 +36,9 @@ func NewClickHouseAdapter(address, table string) (*ClickHouseAdapter, error) {
 		},
 		Debug:       true,
 		DialTimeout: 5 * time.Second,
-		//		MaxOpenConns:    16,
-		//		MaxIdleConns:    1,
-		//		ConnMaxLifetime: time.Hour,
+		//MaxOpenConns:    16,
+		//MaxIdleConns:    1,
+		//ConnMaxLifetime: time.Hour,
 	})
 	db.SetMaxIdleConns(1)
 	db.SetMaxOpenConns(16)
