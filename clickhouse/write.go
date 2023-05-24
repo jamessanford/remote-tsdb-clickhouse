@@ -9,14 +9,21 @@ import (
 )
 
 func (w *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.WriteRequest) (int, error) {
+	commitDone := false
+
 	tx, err := w.db.Begin()
 	if err != nil {
 		return 0, err
 	}
+	defer func() {
+		if !commitDone {
+			tx.Rollback()
+		}
+	}()
 
-	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table)) // FIXME
+	// NOTE: Value of w.table is sanitized in NewClickHouseAdapter.
+	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table))
 	if err != nil {
-		tx.Rollback() // TODO: Use a defer with !commitDone{} check
 		return 0, err
 	}
 	defer stmt.Close()
@@ -45,5 +52,8 @@ func (w *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.WriteR
 			)
 		}
 	}
-	return count, tx.Commit()
+
+	err = tx.Commit()
+	commitDone = true
+	return count, err
 }
