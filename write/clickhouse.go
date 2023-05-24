@@ -68,7 +68,7 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 
 	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table)) // FIXME
 	if err != nil {
-		tx.Rollback()
+		tx.Rollback()  // TODO: Use a defer with !commitDone{} check
 		return 0, err
 	}
 	defer stmt.Close()
@@ -111,10 +111,10 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 		var cQuery []string
 		var cData []any
 
-		cQuery = append(cQuery, "updated_at >= ?")
+		cQuery = append(cQuery, "updated_at >= fromUnixTimestamp64Milli(?)")
 		cData = append(cData, q.StartTimestampMs)
 		if q.EndTimestampMs > 0 {
-			cQuery = append(cQuery, "updated_at <= ?")
+			cQuery = append(cQuery, "updated_at <= fromUnixTimestamp64Milli(?)")
 			cData = append(cData, q.EndTimestampMs)
 		}
 
@@ -124,6 +124,9 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 					cQuery = append(cQuery, "metric_name=?")
 					cData = append(cData, m.Value)
 				} else {
+					if m.Name == "job" && m.Value == "clickhouse" {
+						continue
+					}
 					cQuery = append(cQuery, "has(labels, ?)")
 					cData = append(cData, fmt.Sprintf("%s=%s", m.Name, m.Value))
 				}
@@ -148,12 +151,16 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 		// slices.Equal
 		// (should we slices.Sort?  might be better to have clickhouse do it.  but also it might just be the same)
 		for rows.Next() {
-			rows.Scan() // ...
-			//			qresults.append(&prompb.TimeSeries{Label: [], Sample: [timestamp, value]}
+			var name string
+			var labels string
+			var updatedAt int64
+			var value float64
+			rows.Scan(&name, &labels, &updatedAt, &value)
+			fmt.Printf("ROW %q %q %q %q\n", name, labels, updatedAt, value)
 		}
 
 		if err := rows.Err(); err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
