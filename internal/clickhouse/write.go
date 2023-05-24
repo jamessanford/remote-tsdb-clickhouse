@@ -8,10 +8,10 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 )
 
-func (w *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.WriteRequest) (int, error) {
+func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.WriteRequest) (int, error) {
 	commitDone := false
 
-	tx, err := w.db.Begin()
+	tx, err := ch.db.Begin()
 	if err != nil {
 		return 0, err
 	}
@@ -21,8 +21,8 @@ func (w *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.WriteR
 		}
 	}()
 
-	// NOTE: Value of w.table is sanitized in NewClickHouseAdapter.
-	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table))
+	// NOTE: Value of ch.table is sanitized in NewClickHouseAdapter.
+	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", ch.table))
 	if err != nil {
 		return 0, err
 	}

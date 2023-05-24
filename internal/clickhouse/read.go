@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 )
 
-func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
 	for _, q := range req.Queries {
@@ -26,11 +26,11 @@ func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadReq
 			sb.Clause("updated_at <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
-		if err := addMatcherClauses(q.Matchers, sb); err != nil {
+		if err := addMatcherClauses(q.Matchers, sb, ch.readRequestIgnoreLabel); err != nil {
 			return nil, err
 		}
 
-		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+w.table+" WHERE "+sb.Where()+" ORDER BY metric_name, slb, updated_at", sb.Args()...)
+		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+ch.table+" WHERE "+sb.Where()+" ORDER BY metric_name, slb, updated_at", sb.Args()...)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadReq
 	return res, nil
 }
 
-func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
+func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequestIgnoreLabel string) error {
 	for _, m := range matchers {
 		if m.Name == "__name__" {
 			switch m.Type {
@@ -92,8 +92,7 @@ func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
 			label := m.Name + "=" + m.Value
 			switch m.Type {
 			case prompb.LabelMatcher_EQ:
-				// TODO: Convert to flag.
-				if label == "job=clickhouse" || label == "foo=bar" {
+				if label == readRequestIgnoreLabel {
 					continue
 				}
 				sb.Clause("has(labels, ?)", label)

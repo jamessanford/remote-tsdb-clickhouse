@@ -77,9 +77,11 @@ func main() {
 	var httpAddr string
 	var clickAddr string
 	var table string
+	var readRequestIgnoreLabel string
 	flag.StringVar(&httpAddr, "http", "9131", "listen on this [address:]port")
 	flag.StringVar(&clickAddr, "db", "127.0.0.1:9000", "ClickHouse DB at this address:port")
 	flag.StringVar(&table, "table", "metrics.samples", "write to this database.tablename")
+	flag.StringVar(&readRequestIgnoreLabel, "read.ignore-label", "remote=clickhouse", "ignore this label in read requests")
 	flag.Parse()
 
 	if !strings.Contains(httpAddr, ":") {
@@ -94,6 +96,10 @@ func main() {
 	ch, err := clickhouse.NewClickHouseAdapter(clickAddr, table)
 	if err != nil {
 		logger.Fatal("NewClickHouseAdapter", zap.Error(err))
+	}
+
+	if readRequestIgnoreLabel != "" {
+		ch.IgnoreLabelInReadRequests(readRequestIgnoreLabel)
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

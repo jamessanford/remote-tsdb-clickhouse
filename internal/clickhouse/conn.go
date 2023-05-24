@@ -17,8 +17,13 @@ type ClickHouseAdapter struct {
 	// NOTE: We switched to sql.DB, but clickhouse.Conn appears to handle
 	// PrepareBatch and Query correctly with multiple goroutines, despite
 	// technically being a "driver.Conn"
-	db    *sql.DB
-	table string
+	db                     *sql.DB
+	table                  string
+	readRequestIgnoreLabel string
+}
+
+func (ch *ClickHouseAdapter) IgnoreLabelInReadRequests(label string) {
+	ch.readRequestIgnoreLabel = label
 }
 
 func NewClickHouseAdapter(address, table string) (*ClickHouseAdapter, error) {
