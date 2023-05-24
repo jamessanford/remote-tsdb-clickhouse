@@ -9,6 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/prometheus v0.43.1
 	go.uber.org/zap v1.24.0
+	golang.org/x/exp v0.0.0-20230307190834-24139beb5833
 )
 
 require (
