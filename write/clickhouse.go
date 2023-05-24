@@ -152,11 +152,11 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 		// (should we slices.Sort?  might be better to have clickhouse do it.  but also it might just be the same)
 		for rows.Next() {
 			var name string
-			var labels string
-			var updatedAt int64
+			var labels []string
+			var updatedAt time.Time
 			var value float64
 			rows.Scan(&name, &labels, &updatedAt, &value)
-			fmt.Printf("ROW %q %q %q %q\n", name, labels, updatedAt, value)
+			fmt.Printf("ROW %q %q %q %f\n", name, labels, updatedAt, value)
 		}
 
 		if err := rows.Err(); err != nil {
