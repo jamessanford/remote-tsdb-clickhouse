@@ -2,6 +2,7 @@ package write
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -18,10 +19,9 @@ var (
 )
 
 type ClickHouseWriter struct {
-	// FIXME BUG: Conn is a connection to a database. It is not used concurrently by multiple goroutines.
-	// (So, we should really open on each time, driver handles pooling)
-	// FIXME: Use clickhouse.OpenDB and save the DB here, then use PrepareContext and Exec(allrows)
-	conn  clickhouse.Conn
+	// NOTE: Even though clickhouse.Conn is a 'driver.Conn', when using clickhouse Open() directly, PrepareBatch and Query handle concurrency.
+	// So we probably don't need sql.DB.
+	db    *sql.DB
 	table string
 }
 
@@ -32,38 +32,46 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 
 	// TODO: Move this to a separate function so that people can have control -- just pass us a clickhouse.Conn
 	// NewDefaultConnection(), NewClickhouseWriter(write.NewDefaultConnection(), table)
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	db := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{address},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
 			Password: "",
 		},
-//		Debug:           false,
-                Debug: true,
-                Debugf: func(format string, v ...any) {
-                        fmt.Printf(format+"\n", v)
-                },
-		DialTimeout:     5 * time.Second,
-		MaxOpenConns:    16,
-		MaxIdleConns:    1,
-		ConnMaxLifetime: time.Hour,
+		//		Debug:           false,
+		Debug: true,
+		Debugf: func(format string, v ...any) {
+			fmt.Printf(format+"\n", v...)
+		},
+		DialTimeout: 5 * time.Second,
+		//		MaxOpenConns:    16,
+		//		MaxIdleConns:    1,
+		//		ConnMaxLifetime: time.Hour,
 	})
-	if err != nil {
+	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(16)
+	db.SetConnMaxLifetime(time.Hour)
+
+	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
-	return &ClickHouseWriter{conn: conn, table: table}, nil
+	return &ClickHouseWriter{db: db, table: table}, nil
 }
 
 func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRequest) (int, error) {
-	// NOTE: We sanitize w.table, but there must be a way to quote it.
-	batch, err := w.conn.PrepareBatch(ctx,
-		fmt.Sprintf("INSERT INTO %s", w.table),
-	)
+	tx, err := w.db.Begin()
 	if err != nil {
 		return 0, err
 	}
+
+	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table)) // FIXME
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+	defer stmt.Close()
 
 	count := 0
 
@@ -81,19 +89,15 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 
 		count += len(t.Samples)
 		for _, s := range t.Samples {
-			err := batch.Append(
+			stmt.Exec(
 				time.UnixMilli(s.Timestamp).UTC(),
 				name,
 				labels,
 				s.Value,
 			)
-			if err != nil {
-				return 0, err
-			}
-
 		}
 	}
-	return count, batch.Send()
+	return count, tx.Commit()
 }
 
 func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
@@ -104,21 +108,24 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 		qresults := &prompb.QueryResult{}
 		res.Results = append(res.Results, qresults)
 
-		var clause []string
+		var cQuery []string
+		var cData []any
 
-		// FIXME: Use clauseData for the %d/%s args, remove Sprintf
-		clause = append(clause, fmt.Sprintf("updated_at >= %d", q.StartTimestampMs))
+		cQuery = append(cQuery, "updated_at >= ?")
+		cData = append(cData, q.StartTimestampMs)
 		if q.EndTimestampMs > 0 {
-			clause = append(clause, fmt.Sprintf("updated_at <= %d", q.EndTimestampMs))
+			cQuery = append(cQuery, "updated_at <= ?")
+			cData = append(cData, q.EndTimestampMs)
 		}
 
-		// FIXME: Use clauseData for the %d/%s args, remove Sprintf
 		for _, m := range q.Matchers {
 			if m.Type == prompb.LabelMatcher_EQ {
 				if m.Name == "__name__" {
-					clause = append(clause, fmt.Sprintf("metric_name='%s'", m.Value))
+					cQuery = append(cQuery, "metric_name=?")
+					cData = append(cData, m.Value)
 				} else {
-					clause = append(clause, fmt.Sprintf(`has(labels, "%s=%s")`, m.Name, m.Value))
+					cQuery = append(cQuery, "has(labels, ?)")
+					cData = append(cData, fmt.Sprintf("%s=%s", m.Name, m.Value))
 				}
 			}
 			// for NEQ, use NOT has(labels, 'xxx')
@@ -126,7 +133,7 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			// for NRE, use arrayAll(not match(...))
 		}
 
-		rows, err := w.conn.Query(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM ? WHERE ? ORDER BY metric_name, slb, updated_at", w.table, strings.Join(clause, " AND "))
+		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM " + w.table + " WHERE "+strings.Join(cQuery, " AND ")+" ORDER BY metric_name, slb, updated_at", cData...)
 		if err != nil {
 			return nil, err
 		}
