@@ -163,6 +163,7 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			fmt.Printf("ROW %q %q %q %f\n", name, labels, updatedAt, value)
 
 			if lastName != name || !slices.Equal(lastLabels, labels) {
+				fmt.Printf("NEW TS (OLD %q %q) (NEW %q %q)\n", lastName, lastLabels, name, labels)
 				lastName = name
 				lastLabels = labels
 
