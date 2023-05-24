@@ -39,7 +39,11 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 			Username: "default",
 			Password: "",
 		},
-		Debug:           false,
+//		Debug:           false,
+                Debug: true,
+                Debugf: func(format string, v ...any) {
+                        fmt.Printf(format+"\n", v)
+                },
 		DialTimeout:     5 * time.Second,
 		MaxOpenConns:    16,
 		MaxIdleConns:    1,
@@ -122,7 +126,7 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			// for NRE, use arrayAll(not match(...))
 		}
 
-		rows, err := w.conn.Query(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM %s WHERE %s ORDER BY metric_name, slb, updated_at", w.table, strings.Join(clause, " AND "))
+		rows, err := w.conn.Query(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM ? WHERE ? ORDER BY metric_name, slb, updated_at", w.table, strings.Join(clause, " AND "))
 		if err != nil {
 			return nil, err
 		}
