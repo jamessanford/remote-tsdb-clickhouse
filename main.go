@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -98,16 +97,19 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if res, err := ch.ReadRequest(r.Context(), req); err != nil {
+		res, err := ch.ReadRequest(r.Context(), req)
+                if  err != nil {
 			logger.Error("ReadRequest", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		} else {
-			fmt.Printf("Response\n%s\n", res.String())
-			// encode and ship...
 		}
-		http.Error(w, "unimplemented", http.StatusInternalServerError)
-		// samplesReadTotal.Add(XXX)
+		w.Header().Set("Content-Type", "application/x-protobuf")
+		w.Header().Set("Content-Encoding", "snappy")
+		if err := EncodeReadResponse(res, w); err != nil {
+			logger.Error("EncodeReadResponse", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 
 	logger.Info(

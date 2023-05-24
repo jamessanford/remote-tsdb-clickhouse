@@ -65,3 +65,15 @@ func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
 
 	return &req, nil
 }
+
+// EncodeReadResponse writes a remote.Response to a io.Writer
+func EncodeReadResponse(resp *prompb.ReadResponse, w io.Writer) error {
+	data, err := proto.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	compressed := snappy.Encode(nil, data)
+	_, err = w.Write(compressed)
+	return err
+}
