@@ -11,6 +11,46 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 )
 
+func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
+	for _, m := range matchers {
+		label := m.Name + "=" + m.Value
+
+		switch m.Type {
+		case prompb.LabelMatcher_EQ:
+			if m.Name == "__name__" {
+				sb.Clause("metric_name=?", m.Value)
+			} else {
+				// TODO: Convert to flag.
+				if label == "job=clickhouse" || label == "foo=bar" {
+					continue
+				}
+				sb.Clause("has(labels, ?)", label)
+			}
+		case prompb.LabelMatcher_NEQ:
+			if m.Name == "__name__" {
+				sb.Clause("metric_name!=?", m.Value) // Don't do this.
+			} else {
+				sb.Clause("NOT has(labels, ?)", label)
+			}
+		case prompb.LabelMatcher_RE:
+			if m.Name == "__name__" {
+				sb.Clause("match(metric_name, ?)", m.Value)
+			} else {
+				sb.Clause("arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+			}
+		case prompb.LabelMatcher_NRE:
+			if m.Name == "__name__" {
+				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
+			} else {
+				sb.Clause("arrayAll(x -> not match(x, ?), labels)", label) // TODO: Test this.
+			}
+		default:
+			return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
+		}
+	}
+	return nil
+}
+
 func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
@@ -26,25 +66,8 @@ func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadReq
 			sb.Clause("updated_at <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
-		for _, m := range q.Matchers {
-			if m.Type == prompb.LabelMatcher_EQ {
-				if m.Name == "__name__" {
-					sb.Clause("metric_name=?", m.Value)
-				} else {
-					// TODO: CONSIDER: A way to remove selectors like "remote=clickhouse"
-					// --read.ignore-label=remote=clickhouse
-					if m.Name == "job" && m.Value == "clickhouse" {
-						continue
-					}
-					if m.Name == "foo" && m.Value == "bar" {
-						continue
-					}
-					sb.Clause("has(labels, ?)", fmt.Sprintf("%s=%s", m.Name, m.Value))
-				}
-			}
-			// for NEQ, use NOT has(labels, 'xxx')
-			// for RE, use arrayExists(match(xxx)
-			// for NRE, use arrayAll(not match(...))
+		if err := addMatcherClauses(q.Matchers, sb); err != nil {
+			return nil, err
 		}
 
 		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+w.table+" WHERE "+sb.Where()+" ORDER BY metric_name, slb, updated_at", sb.Args()...)
