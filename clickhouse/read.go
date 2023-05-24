@@ -13,39 +13,37 @@ import (
 
 func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder) error {
 	for _, m := range matchers {
-		label := m.Name + "=" + m.Value
-
-		switch m.Type {
-		case prompb.LabelMatcher_EQ:
-			if m.Name == "__name__" {
+		if m.Name == "__name__" {
+			switch m.Type {
+			case prompb.LabelMatcher_EQ:
 				sb.Clause("metric_name=?", m.Value)
-			} else {
+			case prompb.LabelMatcher_NEQ:
+				sb.Clause("metric_name!=?", m.Value) // Don't do this.
+			case prompb.LabelMatcher_RE:
+				sb.Clause("match(metric_name, ?)", m.Value)
+			case prompb.LabelMatcher_NRE:
+				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
+			default:
+				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
+			}
+		} else {
+			label := m.Name + "=" + m.Value
+			switch m.Type {
+			case prompb.LabelMatcher_EQ:
 				// TODO: Convert to flag.
 				if label == "job=clickhouse" || label == "foo=bar" {
 					continue
 				}
 				sb.Clause("has(labels, ?)", label)
-			}
-		case prompb.LabelMatcher_NEQ:
-			if m.Name == "__name__" {
-				sb.Clause("metric_name!=?", m.Value) // Don't do this.
-			} else {
+			case prompb.LabelMatcher_NEQ:
 				sb.Clause("NOT has(labels, ?)", label)
-			}
-		case prompb.LabelMatcher_RE:
-			if m.Name == "__name__" {
-				sb.Clause("match(metric_name, ?)", m.Value)
-			} else {
+			case prompb.LabelMatcher_RE:
 				sb.Clause("arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+			case prompb.LabelMatcher_NRE:
+				sb.Clause("NOT arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+			default:
+				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
 			}
-		case prompb.LabelMatcher_NRE:
-			if m.Name == "__name__" {
-				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
-			} else {
-				sb.Clause("arrayAll(x -> not match(x, ?), labels)", label) // TODO: Test this.
-			}
-		default:
-			return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
 		}
 	}
 	return nil
