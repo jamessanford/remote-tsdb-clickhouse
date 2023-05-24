@@ -15,17 +15,19 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
 )
 
+// decodeReadLimit is the maximum size of a read request body in bytes.
+const decodeReadLimit = 32 * 1024 * 1024
+
 // DecodeWriteRequest from an io.Reader into a prompb.WriteRequest, handling
 // snappy decompression.
 func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
-	compressed, err := ioutil.ReadAll(r)
+	compressed, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -41,4 +43,37 @@ func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
 	}
 
 	return &req, nil
+}
+
+// DecodeReadRequest from an io.Reader into a prompb.ReadRequest, handling
+// snappy decompression.
+func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
+	compressed, err := io.ReadAll(io.LimitReader(r, decodeReadLimit))
+	if err != nil {
+		return nil, err
+	}
+
+	reqBuf, err := snappy.Decode(nil, compressed)
+	if err != nil {
+		return nil, err
+	}
+
+	var req prompb.ReadRequest
+	if err := proto.Unmarshal(reqBuf, &req); err != nil {
+		return nil, err
+	}
+
+	return &req, nil
+}
+
+// EncodeReadResponse writes a remote.Response to an io.Writer.
+func EncodeReadResponse(resp *prompb.ReadResponse, w io.Writer) error {
+	data, err := proto.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	compressed := snappy.Encode(nil, data)
+	_, err = w.Write(compressed)
+	return err
 }
