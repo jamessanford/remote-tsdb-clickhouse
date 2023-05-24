@@ -92,7 +92,7 @@ func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadReq
 				thisTimeseries = &prompb.TimeSeries{}
 				qresults.Timeseries = append(qresults.Timeseries, thisTimeseries)
 
-				promlabs := []prompb.Label{prompb.Label{Name: "__name__", Value: name}}
+				promlabs := []prompb.Label{{Name: "__name__", Value: name}}
 				for _, label := range labels {
 					ln, lv, _ := strings.Cut(label, "=")
 					promlabs = append(promlabs, prompb.Label{Name: ln, Value: lv})

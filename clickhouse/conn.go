@@ -9,11 +9,9 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-var (
-	// ClickHouse syntax reference
-	// "Non-quoted identifiers must match the regex"
-	clickHouseIdentifier = regexp.MustCompile(`^[a-zA-Z_][0-9a-zA-Z_.]*$`)
-)
+// ClickHouse syntax reference
+// "Non-quoted identifiers must match the regex"
+var clickHouseIdentifier = regexp.MustCompile(`^[a-zA-Z_][0-9a-zA-Z_.]*$`)
 
 type ClickHouseAdapter struct {
 	// NOTE: We switched to sql.DB, but clickhouse.Conn appears to handle
