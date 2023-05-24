@@ -1,5 +1,11 @@
 remote-tsdb-clickhouse is a prometheus remote writer that stores timeseries data in ClickHouse.
 
+### Install
+
+```
+go install github.com/jamessanford/remote-tsdb-exporter@latest
+```
+
 ### Create destination table
 
 Use `clickhouse client` to create this table:
@@ -28,14 +34,33 @@ many rows that match.
 
 ### Configure Prometheus remote writer
 
-In your `prometheus.conf`:
+In your `prometheus.yaml`:
 
 ```
 remote_write:
  - url: "http://localhost:9131/write"
 ```
 
-### Query data with Grafana
+### Configure Prometheus remote reader
+
+In your `prometheus.yaml`, this example forwards queries that have the label `{remote="clickhouse"}`.
+
+By default, `remote-tsdb-clickhouse` will remove that label from requests, see `--help`.
+
+```
+remote_read:
+ - url: "http://localhost:9131/read"
+   read_recent: true
+   name: clickhouse
+   required_matchers:
+     remote: clickhouse
+```
+
+### Query data with Prometheus
+
+With `remote_read` configured, issue queries as normal to Prometheus or Grafana with the `{remote="clickhouse"}` label.
+
+### Query ClickHouse directly with Grafana
 
 Use the [ClickHouse Data Plugin](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/) for Grafana pointed at ClickHouse (eg `localhost:8123`)
 
