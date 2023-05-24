@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/prometheus/prometheus/prompb"
 )
@@ -68,7 +70,7 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 
 	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table)) // FIXME
 	if err != nil {
-		tx.Rollback()  // TODO: Use a defer with !commitDone{} check
+		tx.Rollback() // TODO: Use a defer with !commitDone{} check
 		return 0, err
 	}
 	defer stmt.Close()
@@ -124,6 +126,8 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 					cQuery = append(cQuery, "metric_name=?")
 					cData = append(cData, m.Value)
 				} else {
+					// TODO: CONSIDER: A way to remove selectors like "remote=clickhouse"
+					// --read.ignore-label=remote=clickhouse
 					if m.Name == "job" && m.Value == "clickhouse" {
 						continue
 					}
@@ -136,20 +140,20 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			// for NRE, use arrayAll(not match(...))
 		}
 
-		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM " + w.table + " WHERE "+strings.Join(cQuery, " AND ")+" ORDER BY metric_name, slb, updated_at", cData...)
+		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+w.table+" WHERE "+strings.Join(cQuery, " AND ")+" ORDER BY metric_name, slb, updated_at", cData...)
 		if err != nil {
 			return nil, err
 		}
 
 		// Use hasAll() for labels?
 
-		// CONSIDER: A way to remove selectors like "remote=clickhouse"
-		// --read.ignore-label=remote=clickhouse
-
 		// As long as metric_name and labels are the same, we can fill out a single TimeSeries
 		// and just add Samples
 		// slices.Equal
-		// (should we slices.Sort?  might be better to have clickhouse do it.  but also it might just be the same)
+		var lastName string
+		var lastLabels []string
+		var thisTimeseries *prompb.TimeSeries
+
 		for rows.Next() {
 			var name string
 			var labels []string
@@ -157,6 +161,23 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			var value float64
 			rows.Scan(&name, &labels, &updatedAt, &value)
 			fmt.Printf("ROW %q %q %q %f\n", name, labels, updatedAt, value)
+
+			if lastName != name || !slices.Equal(lastLabels, labels) {
+				lastName = name
+				lastLabels = labels
+
+				thisTimeseries = &prompb.TimeSeries{}
+				qresults.Timeseries = append(qresults.Timeseries, thisTimeseries)
+
+				promlabs := []prompb.Label{prompb.Label{Name: "__name__", Value: name}}
+				for _, label := range labels {
+					ln, lv, _ := strings.Cut(label, "=")
+					promlabs = append(promlabs, prompb.Label{Name: ln, Value: lv})
+				}
+				thisTimeseries.Labels = promlabs
+			}
+
+			thisTimeseries.Samples = append(thisTimeseries.Samples, prompb.Sample{Value: value, Timestamp: updatedAt.UnixMilli()})
 		}
 
 		if err := rows.Err(); err != nil {
