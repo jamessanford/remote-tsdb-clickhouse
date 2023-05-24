@@ -41,7 +41,7 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 			Username: "default",
 			Password: "",
 		},
-		Debug:       false,
+		Debug:       true,
 		DialTimeout: 5 * time.Second,
 		//		MaxOpenConns:    16,
 		//		MaxIdleConns:    1,
@@ -105,29 +105,25 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 		qresults := &prompb.QueryResult{}
 		res.Results = append(res.Results, qresults)
 
-		var cQuery []string
-		var cData []any
+		sb := &sqlBuilder{}
 
-		cQuery = append(cQuery, "updated_at >= fromUnixTimestamp64Milli(?)")
-		cData = append(cData, q.StartTimestampMs)
+		sb.Clause("updated_at >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
+
 		if q.EndTimestampMs > 0 {
-			cQuery = append(cQuery, "updated_at <= fromUnixTimestamp64Milli(?)")
-			cData = append(cData, q.EndTimestampMs)
+			sb.Clause("updated_at <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
 		for _, m := range q.Matchers {
 			if m.Type == prompb.LabelMatcher_EQ {
 				if m.Name == "__name__" {
-					cQuery = append(cQuery, "metric_name=?")
-					cData = append(cData, m.Value)
+					sb.Clause("metric_name=?", m.Value)
 				} else {
 					// TODO: CONSIDER: A way to remove selectors like "remote=clickhouse"
 					// --read.ignore-label=remote=clickhouse
 					if m.Name == "job" && m.Value == "clickhouse" {
 						continue
 					}
-					cQuery = append(cQuery, "has(labels, ?)")
-					cData = append(cData, fmt.Sprintf("%s=%s", m.Name, m.Value))
+					sb.Clause("has(labels, ?", fmt.Sprintf("%s=%s", m.Name, m.Value))
 				}
 			}
 			// for NEQ, use NOT has(labels, 'xxx')
@@ -135,12 +131,12 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			// for NRE, use arrayAll(not match(...))
 		}
 
-		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+w.table+" WHERE "+strings.Join(cQuery, " AND ")+" ORDER BY metric_name, slb, updated_at", cData...)
+		rows, err := w.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+w.table+" WHERE "+sb.Where()+" ORDER BY metric_name, slb, updated_at", sb.Args()...)
 		if err != nil {
 			return nil, err
 		}
 
-		// As long as metric_name and labels are the same, fill out a single TimeSeries.
+		// Fill out a single TimeSeries as long as metric_name and labels are the same.
 		var lastName string
 		var lastLabels []string
 		var thisTimeseries *prompb.TimeSeries
@@ -152,7 +148,7 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			var value float64
 			rows.Scan(&name, &labels, &updatedAt, &value)
 
-			if lastName != name || !slices.Equal(lastLabels, labels) {
+			if thisTimeseries == nil || lastName != name || !slices.Equal(lastLabels, labels) {
 				lastName = name
 				lastLabels = labels
 
