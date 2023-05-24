@@ -26,7 +26,7 @@ func (ch *ClickHouseAdapter) IgnoreLabelInReadRequests(label string) {
 	ch.readRequestIgnoreLabel = label
 }
 
-func NewClickHouseAdapter(address, table string) (*ClickHouseAdapter, error) {
+func NewClickHouseAdapter(address, database, username, password, table string) (*ClickHouseAdapter, error) {
 	if !clickHouseIdentifier.MatchString(table) {
 		return nil, fmt.Errorf("invalid table name: use non-quoted identifier")
 	}
@@ -35,9 +35,9 @@ func NewClickHouseAdapter(address, table string) (*ClickHouseAdapter, error) {
 	db := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{address},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: database,
+			Username: username,
+			Password: password,
 		},
 		Debug:       false,
 		DialTimeout: 5 * time.Second,
