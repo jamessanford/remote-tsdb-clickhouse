@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -54,18 +55,22 @@ func init() {
 func read(ch *clickhouse.ClickHouseAdapter, w http.ResponseWriter, r *http.Request) error {
 	req, err := DecodeReadRequest(r.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("DecodeReadRequest: %w", err)
 	}
 
 	res, err := ch.ReadRequest(r.Context(), req)
 	if err != nil {
-		return err
+		return fmt.Errorf("ReadRequest: %w", err)
 	}
 
 	w.Header().Set("Content-Type", "application/x-protobuf")
 	w.Header().Set("Content-Encoding", "snappy")
 
-	return EncodeReadResponse(res, w)
+	if err := EncodeReadResponse(res, w); err != nil {
+		return fmt.Errorf("EncodeReadResponse: %w", err)
+	}
+
+	return nil
 }
 
 func main() {
