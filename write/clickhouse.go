@@ -41,11 +41,7 @@ func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
 			Username: "default",
 			Password: "",
 		},
-		//		Debug:           false,
-		Debug: true,
-		Debugf: func(format string, v ...any) {
-			fmt.Printf(format+"\n", v...)
-		},
+		Debug: false,
 		DialTimeout: 5 * time.Second,
 		//		MaxOpenConns:    16,
 		//		MaxIdleConns:    1,
@@ -105,7 +101,6 @@ func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRe
 func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
-	// TODO: Move to sql.DB...
 	for _, q := range req.Queries {
 		qresults := &prompb.QueryResult{}
 		res.Results = append(res.Results, qresults)
@@ -145,11 +140,7 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			return nil, err
 		}
 
-		// Use hasAll() for labels?
-
-		// As long as metric_name and labels are the same, we can fill out a single TimeSeries
-		// and just add Samples
-		// slices.Equal
+		// As long as metric_name and labels are the same, fill out a single TimeSeries.
 		var lastName string
 		var lastLabels []string
 		var thisTimeseries *prompb.TimeSeries
@@ -160,10 +151,8 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 			var updatedAt time.Time
 			var value float64
 			rows.Scan(&name, &labels, &updatedAt, &value)
-			fmt.Printf("ROW %q %q %q %f\n", name, labels, updatedAt, value)
 
 			if lastName != name || !slices.Equal(lastLabels, labels) {
-				fmt.Printf("NEW TS (OLD %q %q) (NEW %q %q)\n", lastName, lastLabels, name, labels)
 				lastName = name
 				lastLabels = labels
 
