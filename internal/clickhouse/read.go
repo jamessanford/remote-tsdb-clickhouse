@@ -100,9 +100,9 @@ func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequ
 			case prompb.LabelMatcher_NEQ:
 				sb.Clause("NOT has(labels, ?)", label)
 			case prompb.LabelMatcher_RE:
-				sb.Clause("arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$") // TODO: Test this.
+				sb.Clause("arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$")
 			case prompb.LabelMatcher_NRE:
-				sb.Clause("NOT arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$") // TODO: Test this.
+				sb.Clause("NOT arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$")
 			default:
 				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
 			}
