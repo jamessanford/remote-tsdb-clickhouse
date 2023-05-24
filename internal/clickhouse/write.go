@@ -44,12 +44,15 @@ func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.Write
 
 		count += len(t.Samples)
 		for _, s := range t.Samples {
-			stmt.Exec(
+			_, err := stmt.Exec(
 				time.UnixMilli(s.Timestamp).UTC(),
 				name,
 				labels,
 				s.Value,
 			)
+			if err != nil {
+				return 0, err
+			}
 		}
 	}
 

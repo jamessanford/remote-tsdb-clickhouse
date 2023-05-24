@@ -45,7 +45,10 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 			var labels []string
 			var updatedAt time.Time
 			var value float64
-			rows.Scan(&name, &labels, &updatedAt, &value)
+			err := rows.Scan(&name, &labels, &updatedAt, &value)
+			if err != nil {
+				return nil, err
+			}
 
 			if thisTimeseries == nil || lastName != name || !slices.Equal(lastLabels, labels) {
 				lastName = name
