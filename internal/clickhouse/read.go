@@ -74,6 +74,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 }
 
 func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequestIgnoreLabel string) error {
+	// NOTE: The match() calls use concat() to anchor the regexes to match prometheus behavior.
 	for _, m := range matchers {
 		if m.Name == "__name__" {
 			switch m.Type {
@@ -82,9 +83,9 @@ func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequ
 			case prompb.LabelMatcher_NEQ:
 				sb.Clause("metric_name!=?", m.Value) // Don't do this.
 			case prompb.LabelMatcher_RE:
-				sb.Clause("match(metric_name, ?)", m.Value)
+				sb.Clause("match(metric_name, concat(?, ?, ?))", "^", m.Value, "$")
 			case prompb.LabelMatcher_NRE:
-				sb.Clause("NOT match(metric_name, ?)", m.Value) // Don't do this.
+				sb.Clause("NOT match(metric_name, concat(?, ?, ?))", "^", m.Value, "$") // Don't do this.
 			default:
 				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
 			}
@@ -99,9 +100,9 @@ func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequ
 			case prompb.LabelMatcher_NEQ:
 				sb.Clause("NOT has(labels, ?)", label)
 			case prompb.LabelMatcher_RE:
-				sb.Clause("arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+				sb.Clause("arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$") // TODO: Test this.
 			case prompb.LabelMatcher_NRE:
-				sb.Clause("NOT arrayExists(x -> match(x, ?), labels)", label) // TODO: Test this.
+				sb.Clause("NOT arrayExists(x -> match(x, concat(?, ?, ?)), labels)", "^", label, "$") // TODO: Test this.
 			default:
 				return fmt.Errorf("unsupported LabelMatcher_Type %v", m.Type)
 			}
