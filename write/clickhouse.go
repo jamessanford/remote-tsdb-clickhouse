@@ -123,6 +123,9 @@ func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequ
 					if m.Name == "job" && m.Value == "clickhouse" {
 						continue
 					}
+					if m.Name == "foo" && m.Value == "bar" {
+						continue
+					}
 					sb.Clause("has(labels, ?)", fmt.Sprintf("%s=%s", m.Name, m.Value))
 				}
 			}
