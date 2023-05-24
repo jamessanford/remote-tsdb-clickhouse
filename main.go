@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jamessanford/remote-tsdb-clickhouse/write"
+	"github.com/jamessanford/remote-tsdb-clickhouse/clickhouse"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -55,9 +55,9 @@ func main() {
 		panic(err)
 	}
 
-	ch, err := write.NewClickHouseWriter(clickAddr, table)
+	ch, err := clickhouse.NewClickHouseAdapter(clickAddr, table)
 	if err != nil {
-		logger.Fatal("NewClickHouseWriter", zap.Error(err))
+		logger.Fatal("NewClickHouseAdapter", zap.Error(err))
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

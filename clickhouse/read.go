@@ -1,104 +1,17 @@
-package write
+package clickhouse
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"golang.org/x/exp/slices"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/prometheus/prometheus/prompb"
 )
 
-var (
-	// ClickHouse syntax reference
-	// "Non-quoted identifiers must match the regex"
-	clickHouseIdentifier = regexp.MustCompile(`^[a-zA-Z_][0-9a-zA-Z_.]*$`)
-)
-
-type ClickHouseWriter struct {
-	// NOTE: Even though clickhouse.Conn is a 'driver.Conn', when using clickhouse Open() directly, PrepareBatch and Query handle concurrency.
-	// So we probably don't need sql.DB.
-	db    *sql.DB
-	table string
-}
-
-func NewClickHouseWriter(address, table string) (*ClickHouseWriter, error) {
-	if !clickHouseIdentifier.MatchString(table) {
-		return nil, fmt.Errorf("invalid table name: use non-quoted identifier")
-	}
-
-	// TODO: Move this to a separate function so that people can have control -- just pass us a clickhouse.Conn
-	// NewDefaultConnection(), NewClickhouseWriter(write.NewDefaultConnection(), table)
-	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{address},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Debug:       true,
-		DialTimeout: 5 * time.Second,
-		//		MaxOpenConns:    16,
-		//		MaxIdleConns:    1,
-		//		ConnMaxLifetime: time.Hour,
-	})
-	db.SetMaxIdleConns(1)
-	db.SetMaxOpenConns(16)
-	db.SetConnMaxLifetime(time.Hour)
-
-	if err := db.Ping(); err != nil {
-		return nil, err
-	}
-
-	return &ClickHouseWriter{db: db, table: table}, nil
-}
-
-func (w *ClickHouseWriter) WriteRequest(ctx context.Context, req *prompb.WriteRequest) (int, error) {
-	tx, err := w.db.Begin()
-	if err != nil {
-		return 0, err
-	}
-
-	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", w.table)) // FIXME
-	if err != nil {
-		tx.Rollback() // TODO: Use a defer with !commitDone{} check
-		return 0, err
-	}
-	defer stmt.Close()
-
-	count := 0
-
-	for _, t := range req.Timeseries {
-		var name string
-		labels := make([]string, 0, len(t.Labels))
-
-		for _, l := range t.Labels {
-			if l.Name == "__name__" {
-				name = l.Value
-				continue
-			}
-			labels = append(labels, l.Name+"="+l.Value)
-		}
-
-		count += len(t.Samples)
-		for _, s := range t.Samples {
-			stmt.Exec(
-				time.UnixMilli(s.Timestamp).UTC(),
-				name,
-				labels,
-				s.Value,
-			)
-		}
-	}
-	return count, tx.Commit()
-}
-
-func (w *ClickHouseWriter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+func (w *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
 	for _, q := range req.Queries {
