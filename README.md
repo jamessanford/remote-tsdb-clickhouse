@@ -1,4 +1,7 @@
-remote-tsdb-clickhouse is a prometheus remote writer that stores timeseries data in ClickHouse.
+remote-tsdb-clickhouse stores timeseries data in ClickHouse.
+
+Implements both Prometheus remote writer (to store metrics) and
+Prometheus remote reader (use metrics from ClickHouse directly in Prometheus)
 
 ### Install
 
@@ -43,9 +46,11 @@ remote_write:
 
 ### Configure Prometheus remote reader
 
-In your `prometheus.yaml`, this example forwards queries that have the label `{remote="clickhouse"}`.
+In your `prometheus.yaml`, this example forwards queries
+that have the label `{remote="clickhouse"}`.
 
-By default, `remote-tsdb-clickhouse` will remove that label from requests, see `--help`.
+By default, `remote-tsdb-clickhouse` will remove that label
+from requests, see `--help`.
 
 ```
 remote_read:
@@ -58,7 +63,8 @@ remote_read:
 
 ### Query data with Prometheus
 
-With `remote_read` configured, issue queries as normal to Prometheus or Grafana with the `{remote="clickhouse"}` label.
+With `remote_read` configured, issue queries as normal to
+Prometheus or Grafana with the added `{remote="clickhouse"}` label.
 
 ### Query ClickHouse directly with Grafana
 
