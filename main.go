@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jamessanford/remote-tsdb-clickhouse/clickhouse"
+	"github.com/jamessanford/remote-tsdb-clickhouse/internal/clickhouse"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
