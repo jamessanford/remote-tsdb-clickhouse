@@ -20,17 +20,28 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 
 		sb := &sqlBuilder{}
 
-		sb.Clause("updated_at >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
+		sb.Clause("t >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
 
 		if q.EndTimestampMs > 0 {
-			sb.Clause("updated_at <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
+			sb.Clause("t <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
 		if err := addMatcherClauses(q.Matchers, sb, ch.readRequestIgnoreLabel); err != nil {
 			return nil, err
 		}
 
-		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, updated_at, value FROM "+ch.table+" WHERE "+sb.Where()+" ORDER BY metric_name, slb, updated_at", sb.Args()...)
+		timeField := "updated_at"
+
+		// When plotting graphs, Prometheus or Grafana may suggest returning
+		// a data point for every "StepMs" instead of all data points.
+		//
+		// The hint seems optimistic, so return twice as many as they asked for.
+		if q.Hints.StepMs > 2000 && ch.readRequestIgnoreStepHint == false {
+			// use 'second' as 'millisecond' does not work with DateTime fields
+			timeField = fmt.Sprintf("toStartOfInterval(updated_at, INTERVAL %d second)", q.Hints.StepMs/2000)
+		}
+
+		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, "+timeField+" AS t, max(value) as max_0 FROM "+ch.table+" WHERE "+sb.Where()+" GROUP BY metric_name, slb, t ORDER BY metric_name, slb, t", sb.Args()...)
 		if err != nil {
 			return nil, err
 		}
