@@ -22,10 +22,10 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 
 		sb := &sqlBuilder{}
 
-		sb.Clause("t >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
+		sb.Clause("t >= ?", q.StartTimestampMs/1000)
 
 		if q.EndTimestampMs > 0 {
-			sb.Clause("t <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
+			sb.Clause("t <= ?", q.EndTimestampMs/1000)
 		}
 
 		if err := addMatcherClauses(q.Matchers, sb, ch.readIgnoreLabel); err != nil {
