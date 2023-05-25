@@ -20,11 +20,9 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 
 		sb := &sqlBuilder{}
 
-		sb.Clause("updated_at >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
 		sb.Clause("t >= fromUnixTimestamp64Milli(?)", q.StartTimestampMs)
 
 		if q.EndTimestampMs > 0 {
-			sb.Clause("updated_at <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 			sb.Clause("t <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
