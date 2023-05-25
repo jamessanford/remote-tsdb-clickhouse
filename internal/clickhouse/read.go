@@ -33,12 +33,24 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 		timeField := "updated_at"
 
 		// When plotting graphs, Prometheus or Grafana may suggest returning
-		// a data point for every "StepMs" instead of all data points.
-		//
-		// The hint seems optimistic, so return twice as many as they asked for.
+		// fewer than all datapoints by hinting with "StepMs" and "RangeMs".
 		if q.Hints.StepMs > 2000 && ch.readRequestIgnoreStepHint == false {
+			interval := q.Hints.StepMs
+			if q.Hints.RangeMs > 0 && q.Hints.RangeMs < q.Hints.StepMs {
+				interval = q.Hints.RangeMs
+			}
+
+			// The hints seem optimistic, return more datapoints than asked for.
+			interval /= 2
+
 			// use 'second' as 'millisecond' does not work with DateTime fields
-			timeField = fmt.Sprintf("toStartOfInterval(updated_at, INTERVAL %d second)", q.Hints.StepMs/2000)
+			interval /= 1000
+
+			if interval < 1 {
+				interval = 1
+			}
+
+			timeField = fmt.Sprintf("toStartOfInterval(updated_at, INTERVAL %d second)", interval)
 		}
 
 		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, "+timeField+" AS t, max(value) as max_0 FROM "+ch.table+" WHERE "+sb.Where()+" GROUP BY metric_name, slb, t ORDER BY metric_name, slb, t", sb.Args()...)
