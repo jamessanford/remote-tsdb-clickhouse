@@ -17,41 +17,45 @@ type ClickHouseAdapter struct {
 	// NOTE: We switched to sql.DB, but clickhouse.Conn appears to handle
 	// PrepareBatch and Query correctly with multiple goroutines, despite
 	// technically being a "driver.Conn"
-	db                        *sql.DB
-	table                     string
-	readRequestIgnoreLabel    string
-	readRequestIgnoreStepHint bool
+	db              *sql.DB
+	table           string
+	readIgnoreLabel string
+	readIgnoreHints bool
 }
 
-func (ch *ClickHouseAdapter) IgnoreLabelInReadRequests(label string) {
-	ch.readRequestIgnoreLabel = label
+type Config struct {
+	Address  string
+	Database string
+	Username string
+	Password string
+	Table    string
+
+	ReadIgnoreLabel string
+	ReadIgnoreHints bool
+
+	Debug bool
 }
 
-func (ch *ClickHouseAdapter) IgnoreStepInReadRequests(ignore bool) {
-	ch.readRequestIgnoreStepHint = ignore
-}
-
-func NewClickHouseAdapter(address, database, username, password, table string) (*ClickHouseAdapter, error) {
-	if !clickHouseIdentifier.MatchString(table) {
+func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
+	if !clickHouseIdentifier.MatchString(config.Table) {
 		return nil, fmt.Errorf("invalid table name: use non-quoted identifier")
 	}
 
-	// TODO: Move this to a separate function for flag control.
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{address},
+		Addr: []string{config.Address},
 		Auth: clickhouse.Auth{
-			Database: database,
-			Username: username,
-			Password: password,
+			Database: config.Database,
+			Username: config.Username,
+			Password: config.Password,
 		},
-		Debug:       false,
+		Debug:       config.Debug,
 		DialTimeout: 5 * time.Second,
 		//MaxOpenConns:    16,
 		//MaxIdleConns:    1,
 		//ConnMaxLifetime: time.Hour,
 	})
-	db.SetMaxIdleConns(1)
 	db.SetMaxOpenConns(16)
+	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(time.Hour)
 
 	// Immediately try to connect with the provided credentials, fail fast.
@@ -59,5 +63,10 @@ func NewClickHouseAdapter(address, database, username, password, table string) (
 		return nil, err
 	}
 
-	return &ClickHouseAdapter{db: db, table: table}, nil
+	return &ClickHouseAdapter{
+		db:              db,
+		table:           config.Table,
+		readIgnoreLabel: config.ReadIgnoreLabel,
+		readIgnoreHints: config.ReadIgnoreHints,
+	}, nil
 }

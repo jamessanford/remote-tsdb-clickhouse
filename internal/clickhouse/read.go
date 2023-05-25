@@ -11,6 +11,8 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 )
 
+const minStepHintMs = 2000 // only consider sampling data when step is larger than this
+
 func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
 	res := &prompb.ReadResponse{}
 
@@ -26,7 +28,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 			sb.Clause("t <= fromUnixTimestamp64Milli(?)", q.EndTimestampMs)
 		}
 
-		if err := addMatcherClauses(q.Matchers, sb, ch.readRequestIgnoreLabel); err != nil {
+		if err := addMatcherClauses(q.Matchers, sb, ch.readIgnoreLabel); err != nil {
 			return nil, err
 		}
 
@@ -34,7 +36,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 
 		// When plotting graphs, Prometheus or Grafana may suggest returning
 		// fewer than all datapoints by hinting with "StepMs" and "RangeMs".
-		if q.Hints.StepMs > 2000 && ch.readRequestIgnoreStepHint == false {
+		if q.Hints.StepMs > minStepHintMs && ch.readIgnoreHints == false {
 			interval := q.Hints.StepMs
 			if q.Hints.RangeMs > 0 && q.Hints.RangeMs < q.Hints.StepMs {
 				interval = q.Hints.RangeMs
@@ -43,7 +45,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 			// The hints seem optimistic, return more datapoints than asked for.
 			interval /= 2
 
-			// use 'second' as 'millisecond' does not work with DateTime fields
+			// DateTime field requires seconds
 			interval /= 1000
 
 			if interval < 1 {
@@ -99,7 +101,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 	return res, nil
 }
 
-func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequestIgnoreLabel string) error {
+func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readIgnoreLabel string) error {
 	// NOTE: The match() calls use concat() to anchor the regexes to match prometheus behavior.
 	for _, m := range matchers {
 		if m.Name == "__name__" {
@@ -119,7 +121,7 @@ func addMatcherClauses(matchers []*prompb.LabelMatcher, sb *sqlBuilder, readRequ
 			label := m.Name + "=" + m.Value
 			switch m.Type {
 			case prompb.LabelMatcher_EQ:
-				if label == readRequestIgnoreLabel {
+				if label == readIgnoreLabel {
 					continue
 				}
 				sb.Clause("has(labels, ?)", label)
