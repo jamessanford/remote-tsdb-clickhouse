@@ -46,11 +46,20 @@ remote_write:
 
 ### Configure Prometheus remote reader
 
-In your `prometheus.yaml`, this example forwards queries
-that have the label `{remote="clickhouse"}`.
+In your `prometheus.yaml`:
 
-By default, `remote-tsdb-clickhouse` will remove that label
-from requests, see `--help`.
+```
+remote_read:
+ - url: "http://localhost:9131/read"
+```
+
+### Query data with Prometheus
+
+The above configuration will use `remote-tsdb-clickhouse` to backfill
+data not present in Prometheus.
+
+If you'd like to query `remote-tsdb-clickhouse` immediately, consider
+this configuration:
 
 ```
 remote_read:
@@ -61,10 +70,10 @@ remote_read:
      remote: clickhouse
 ```
 
-### Query data with Prometheus
+Then issue queries with the added `{remote="clickhouse"}` label.
 
-With `remote_read` configured, issue queries as normal to
-Prometheus or Grafana with the added `{remote="clickhouse"}` label.
+`remote-tsdb-clickhouse` will remove the `{remote="clickhouse"}` label
+from incoming requests by default, see `--help`.
 
 ### Query ClickHouse directly with Grafana
 
