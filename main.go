@@ -77,6 +77,7 @@ func main() {
 	var httpAddr string
 	var clickAddr, database, username, password, table string
 	var readRequestIgnoreLabel string
+	var readRequestIgnoreStepHint bool
 	flag.StringVar(&httpAddr, "http", "9131", "listen on this [address:]port")
 	flag.StringVar(&clickAddr, "db", "127.0.0.1:9000", "ClickHouse DB at this address:port")
 	flag.StringVar(&database, "db.database", "default", "ClickHouse database")
@@ -84,6 +85,7 @@ func main() {
 	flag.StringVar(&password, "db.password", "", "ClickHouse password")
 	flag.StringVar(&table, "table", "metrics.samples", "write to this database.tablename")
 	flag.StringVar(&readRequestIgnoreLabel, "read.ignore-label", "remote=clickhouse", "ignore this label in read requests")
+	flag.BoolVar(&readRequestIgnoreStepHint, "read.ignore-step", false, "ignore step hint in read requests")
 	flag.Parse()
 
 	if !strings.Contains(httpAddr, ":") {
@@ -103,6 +105,8 @@ func main() {
 	if readRequestIgnoreLabel != "" {
 		ch.IgnoreLabelInReadRequests(readRequestIgnoreLabel)
 	}
+
+	ch.IgnoreStepInReadRequests(readRequestIgnoreStepHint)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
