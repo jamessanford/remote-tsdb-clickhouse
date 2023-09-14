@@ -135,6 +135,7 @@ func main() {
 			writeErrorsTotal.Inc()
 			logger.Error("WriteRequest", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		} else if count > 0 {
 			samplesWrittenTotal.Add(float64(count))
 		}
@@ -147,6 +148,7 @@ func main() {
 			readErrorsTotal.Inc()
 			logger.Error("ReadRequest", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	})
 

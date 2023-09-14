@@ -44,7 +44,7 @@ func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.Write
 
 		count += len(t.Samples)
 		for _, s := range t.Samples {
-			_, err := stmt.Exec(
+			_, err = stmt.Exec(
 				time.UnixMilli(s.Timestamp).UTC(),
 				name,
 				labels,
