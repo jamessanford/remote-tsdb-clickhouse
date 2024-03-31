@@ -3,11 +3,11 @@ module github.com/jamessanford/remote-tsdb-clickhouse
 go 1.22
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.22.4
+	github.com/ClickHouse/clickhouse-go/v2 v2.23.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/prometheus v0.51.0
+	github.com/prometheus/prometheus v0.51.1
 	go.uber.org/zap v1.27.0
 )
 
