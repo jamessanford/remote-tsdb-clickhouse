@@ -22,7 +22,7 @@ func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.Write
 	}()
 
 	// NOTE: Value of ch.table is sanitized in NewClickHouseAdapter.
-	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s", ch.table))
+	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf("INSERT INTO %s (updated_at, metric_name, labels, value)", ch.table))
 	if err != nil {
 		return 0, err
 	}
@@ -45,10 +45,10 @@ func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.Write
 		count += len(t.Samples)
 		for _, s := range t.Samples {
 			_, err = stmt.Exec(
-				time.UnixMilli(s.Timestamp).UTC(),
-				name,
-				labels,
-				s.Value,
+				time.UnixMilli(s.Timestamp).UTC(), // updated_at
+				name,                              // metric_name
+				labels,                            // labels
+				s.Value,                           // value
 			)
 			if err != nil {
 				return 0, err

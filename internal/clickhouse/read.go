@@ -3,10 +3,9 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/prometheus/prometheus/prompb"
 )

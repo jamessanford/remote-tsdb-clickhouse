@@ -75,11 +75,12 @@ Then issue queries with the added `{remote="clickhouse"}` label.
 `remote-tsdb-clickhouse` will remove the `{remote="clickhouse"}` label
 from incoming requests by default, see `--help`.
 
-### Query ClickHouse directly with Grafana
+### Query directly with Grafana
 
-Use the [ClickHouse Data Plugin](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/) for Grafana pointed at ClickHouse (eg `localhost:8123`)
+I recommend querying through Prometheus `remote_read`, but it is possible to read the ClickHouse
+data directly from Grafana with the [ClickHouse Data Plugin](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/)
 
-Queries to get you started:
+Sample ClickHouse Data Plugin direct queries:
 
 ```
 $perSecondColumns(arrayConcat([metric_name], labels), value)
