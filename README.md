@@ -23,14 +23,13 @@ CREATE TABLE metrics.samples
     INDEX labelset (labels, metric_name) TYPE set(0) GRANULARITY 8192
 )
 ENGINE = MergeTree
-ORDER BY (metric_name, updated_at, labels)
+ORDER BY (metric_name, labels, updated_at)
 SETTINGS index_granularity = 8192
 ```
 
-This works well with over 100 billion metrics, even when searching for labels,
-even with relatively high million+ cardinality.
-Including label values, it takes approximately 1 byte per value for my dataset
-(1 gigabyte per billion metrics)
+This works well with over 30 billion metrics, even when searching by label,
+although cardinality of my dataset is low at 16032 unique metrics+labels.
+Including label values, it takes approximately 1 byte per value for my dataset (1 gigabyte per billion metrics)
 
 The `labelset` index granularity is set to 8192 (8192*8192 rows) on purpose for
 queries like `has(labels, 'job=omada')` while still providing performance with
