@@ -42,7 +42,13 @@ In your `prometheus.yaml`:
 ```
 remote_write:
  - url: "http://localhost:9131/write"
+   queue_config:
+     max_samples_per_send: 10000
 ```
+
+ClickHouse prefers fewer writes with more samples per write.  Above a certain
+rate you may need to adjust Prometheus `capacity` and
+`max_samples_per_send` as per [Prometheus Remote Write Tuning](https://prometheus.io/docs/practices/remote_write/) if you see "Too many parts" errors or `prometheus_remote_storage_samples_pending` keeps growing.
 
 ### Configure Prometheus remote reader
 
