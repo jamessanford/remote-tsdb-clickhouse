@@ -3,11 +3,11 @@ module github.com/jamessanford/remote-tsdb-clickhouse
 go 1.22
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.27.1
+	github.com/ClickHouse/clickhouse-go/v2 v2.28.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4
-	github.com/prometheus/client_golang v1.20.0
-	github.com/prometheus/prometheus v0.54.0
+	github.com/prometheus/client_golang v1.20.3
+	github.com/prometheus/prometheus v0.54.1
 	go.uber.org/zap v1.27.0
 )
 
@@ -33,7 +33,7 @@ require (
 	go.opentelemetry.io/otel v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
