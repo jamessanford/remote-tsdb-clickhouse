@@ -16,7 +16,6 @@ package main
 import (
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
 )
@@ -38,7 +37,7 @@ func DecodeWriteRequest(r io.Reader) (*prompb.WriteRequest, error) {
 	}
 
 	var req prompb.WriteRequest
-	if err := proto.Unmarshal(reqBuf, &req); err != nil {
+	if err := req.Unmarshal(reqBuf); err != nil {
 		return nil, err
 	}
 
@@ -59,7 +58,7 @@ func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
 	}
 
 	var req prompb.ReadRequest
-	if err := proto.Unmarshal(reqBuf, &req); err != nil {
+	if err := req.Unmarshal(reqBuf); err != nil {
 		return nil, err
 	}
 
@@ -68,7 +67,7 @@ func DecodeReadRequest(r io.Reader) (*prompb.ReadRequest, error) {
 
 // EncodeReadResponse writes a remote.Response to an io.Writer.
 func EncodeReadResponse(resp *prompb.ReadResponse, w io.Writer) error {
-	data, err := proto.Marshal(resp)
+	data, err := resp.Marshal()
 	if err != nil {
 		return err
 	}
