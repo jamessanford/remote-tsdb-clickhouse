@@ -60,7 +60,7 @@ func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
 
 	// Immediately try to connect with the provided credentials, fail fast.
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to connect to clickhouse server: %w", err)
 	}
 
 	return &ClickHouseAdapter{
