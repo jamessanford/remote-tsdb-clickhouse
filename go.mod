@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
 	github.com/golang/snappy v0.0.4
 	github.com/prometheus/client_golang v1.20.5
-	github.com/prometheus/prometheus v0.300.0
+	github.com/prometheus/prometheus v0.300.1
 	go.uber.org/zap v1.27.0
 )
 
