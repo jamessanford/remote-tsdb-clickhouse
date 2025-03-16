@@ -3,7 +3,7 @@ module github.com/jamessanford/remote-tsdb-clickhouse
 go 1.24.0
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.32.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.33.0
 	github.com/golang/snappy v0.0.4
 	github.com/prometheus/client_golang v1.21.1
 	github.com/prometheus/prometheus v0.302.1
@@ -31,8 +31,8 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	go.opentelemetry.io/otel v1.34.0 // indirect
-	go.opentelemetry.io/otel/trace v1.34.0 // indirect
+	go.opentelemetry.io/otel v1.35.0 // indirect
+	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
