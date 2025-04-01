@@ -34,6 +34,7 @@ func (ch *ClickHouseAdapter) WriteRequest(ctx context.Context, req *prompb.Write
 		var name string
 		labels := make([]string, 0, len(t.Labels))
 
+		// Note that label names are in sorted order per the remote write spec.
 		for _, l := range t.Labels {
 			if l.Name == "__name__" {
 				name = l.Value
