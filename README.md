@@ -1,4 +1,4 @@
-remote-tsdb-clickhouse stores timeseries data in ClickHouse.
+prom-scopedb-adaptor stores timeseries data in ClickHouse.
 
 Implements both Prometheus remote writer (to store metrics) and
 Prometheus remote reader (use metrics from ClickHouse directly in Prometheus)
@@ -6,25 +6,22 @@ Prometheus remote reader (use metrics from ClickHouse directly in Prometheus)
 ### Install
 
 ```
-go install github.com/jamessanford/remote-tsdb-clickhouse@latest
+go install github.com/andylokandy/prom-scopedb-adaptor@latest
 ```
 
 ### Create destination table
 
-Use `clickhouse client` to create this table:
+Use `scopeql` to create this table:
 
 ```
 CREATE TABLE metrics.samples
 (
-    `updated_at` DateTime CODEC(DoubleDelta, LZ4),
-    `metric_name` LowCardinality(String),
-    `labels` Array(LowCardinality(String)),
-    `value` Float64 CODEC(Gorilla, LZ4),
-    INDEX labelset (labels, metric_name) TYPE set(0) GRANULARITY 8192
+    `updated_at` timestamp,
+    `metric_name` string,
+    `labels` Variant,
+    `value` float,
 )
-ENGINE = MergeTree
 ORDER BY (metric_name, labels, updated_at)
-SETTINGS index_granularity = 8192
 ```
 
 This works well with over 30 billion metrics, even when searching by label,
@@ -61,10 +58,10 @@ remote_read:
 
 ### Query data with Prometheus
 
-The above configuration will use `remote-tsdb-clickhouse` to backfill
+The above configuration will use `prom-scopedb-adaptor` to backfill
 data not present in Prometheus.
 
-If you'd like to query `remote-tsdb-clickhouse` immediately, consider
+If you'd like to query `prom-scopedb-adaptor` immediately, consider
 this configuration:
 
 ```
@@ -78,7 +75,7 @@ remote_read:
 
 Then issue queries with the added `{remote="clickhouse"}` label.
 
-`remote-tsdb-clickhouse` will remove the `{remote="clickhouse"}` label
+`prom-scopedb-adaptor` will remove the `{remote="clickhouse"}` label
 from incoming requests by default, see `--help`.
 
 ### Query directly with Grafana

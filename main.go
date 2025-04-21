@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jamessanford/remote-tsdb-clickhouse/internal/clickhouse"
+	"github.com/andylokandy/prom-scopedb-adaptor/internal/scopedb"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,7 +20,7 @@ var (
 	samplesWrittenTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "samples_written_total",
-			Help: "number of samples written into clickhouse",
+			Help: "number of samples written into the backend",
 		})
 	writeRequestsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
@@ -52,15 +52,17 @@ func init() {
 	prometheus.MustRegister(readErrorsTotal)
 }
 
-func read(ch *clickhouse.ClickHouseAdapter, w http.ResponseWriter, r *http.Request) error {
+// Update function signature to use ScopeDBAdapter
+func read(adapter *scopedb.ScopeDBAdapter, w http.ResponseWriter, r *http.Request) error { // << CHANGED
 	req, err := DecodeReadRequest(r.Body)
 	if err != nil {
 		return fmt.Errorf("DecodeReadRequest: %w", err)
 	}
 
-	res, err := ch.ReadRequest(r.Context(), req)
+	// Call the adapter's ReadRequest method
+	res, err := adapter.ReadRequest(r.Context(), req) // << CHANGED
 	if err != nil {
-		return fmt.Errorf("ReadRequest: %w", err)
+		return fmt.Errorf("ReadRequest: %w", err) // Error message updated
 	}
 
 	w.Header().Set("Content-Type", "application/x-protobuf")
@@ -75,19 +77,18 @@ func read(ch *clickhouse.ClickHouseAdapter, w http.ResponseWriter, r *http.Reque
 
 func main() {
 	var httpAddr string
-	var clickAddr, database, username, password, table string
+	// ScopeDB flags
+	var scopeEndpoint string
+	var scopeTable string
 	var readIgnoreLabel string
 	var readIgnoreHints bool
 	var debug bool
 	flag.StringVar(&httpAddr, "http", "9131", "listen on this [address:]port")
-	flag.StringVar(&clickAddr, "db", "127.0.0.1:9000", "ClickHouse DB at this address:port")
-	flag.StringVar(&database, "db.database", "default", "ClickHouse database")
-	flag.StringVar(&username, "db.username", "default", "ClickHouse username")
-	flag.StringVar(&password, "db.password", "", "ClickHouse password")
-	flag.StringVar(&table, "table", "metrics.samples", "write to this database.tablename")
-	flag.StringVar(&readIgnoreLabel, "read.ignore-label", "remote=clickhouse", "ignore this label in read requests")
-	flag.BoolVar(&readIgnoreHints, "read.ignore-hints", false, "ignore step/range hints in read requests")
-	flag.BoolVar(&debug, "debug", false, "print debug messages")
+	flag.StringVar(&scopeEndpoint, "scopedb.endpoint", "http://localhost:6543", "ScopeDB endpoint URL")
+	flag.StringVar(&scopeTable, "scopedb.table", "metrics.prometheus.samples", "ScopeDB target table (database.schema.table)")
+	flag.StringVar(&readIgnoreLabel, "read.ignore-label", "remote=scopedb", "ignore this label=value pair in read requests")
+	flag.BoolVar(&readIgnoreHints, "read.ignore-hints", true, "ignore step/range hints in read requests (ScopeDB implementation is basic)")
+	flag.BoolVar(&debug, "debug", false, "print debug messages (including ScopeDB queries)")
 	flag.Parse()
 
 	if !strings.Contains(httpAddr, ":") {
@@ -99,23 +100,21 @@ func main() {
 		panic(err)
 	}
 
-	ch, err := clickhouse.NewClickHouseAdapter(&clickhouse.Config{
-		Address:         clickAddr,
-		Database:        database,
-		Username:        username,
-		Password:        password,
-		Table:           table,
+	// Instantiate ScopeDB adapter
+	adapter, err := scopedb.NewScopeDBAdapter(&scopedb.Config{
+		Endpoint:        scopeEndpoint,
+		Table:           scopeTable,
 		ReadIgnoreLabel: readIgnoreLabel,
 		ReadIgnoreHints: readIgnoreHints,
 		Debug:           debug,
 	})
 	if err != nil {
-		logger.Fatal("NewClickHouseAdapter", zap.Error(err))
+		logger.Fatal("NewScopeDBAdapter", zap.Error(err))
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = io.WriteString(w, "remote-tsdb-clickhouse")
+		_, _ = io.WriteString(w, "prom-scopedb-adaptor")
 		r.Body.Close()
 	})
 
@@ -131,9 +130,10 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if count, err := ch.WriteRequest(r.Context(), req); err != nil {
+		// Use the adapter's WriteRequest
+		if count, err := adapter.WriteRequest(r.Context(), req); err != nil { // << CHANGED
 			writeErrorsTotal.Inc()
-			logger.Error("WriteRequest", zap.Error(err))
+			logger.Error("WriteRequest", zap.Error(err)) // << Error message updated
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		} else if count > 0 {
@@ -144,9 +144,10 @@ func main() {
 	http.HandleFunc("/read", func(w http.ResponseWriter, r *http.Request) {
 		readRequestsTotal.Inc()
 		defer r.Body.Close()
-		if err := read(ch, w, r); err != nil && !errors.Is(err, context.Canceled) {
+		// Pass the adapter to the read function
+		if err := read(adapter, w, r); err != nil && !errors.Is(err, context.Canceled) { // << CHANGED
 			readErrorsTotal.Inc()
-			logger.Error("ReadRequest", zap.Error(err))
+			logger.Error("ReadRequest", zap.Error(err)) // << Error message updated
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -155,8 +156,8 @@ func main() {
 	logger.Info(
 		"listening",
 		zap.String("listen", httpAddr),
-		zap.String("db", clickAddr),
-		zap.String("table", table),
+		zap.String("scopedb_endpoint", scopeEndpoint),
+		zap.String("scopedb_table", scopeTable),
 	)
 
 	if err := http.ListenAndServe(httpAddr, nil); err != nil {
