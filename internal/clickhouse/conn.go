@@ -14,9 +14,6 @@ import (
 var clickHouseIdentifier = regexp.MustCompile(`^[a-zA-Z_][0-9a-zA-Z_.]*$`)
 
 type ClickHouseAdapter struct {
-	// NOTE: We switched to sql.DB, but clickhouse.Conn appears to handle
-	// PrepareBatch and Query correctly with multiple goroutines, despite
-	// technically being a "driver.Conn"
 	db              *sql.DB
 	table           string
 	readIgnoreLabel string
