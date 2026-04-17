@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/exp/zapslog"
 )
 
 var (
@@ -94,9 +96,12 @@ func main() {
 		httpAddr = ":" + httpAddr
 	}
 
-	logger, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
+	var logger *zap.Logger
+
+	if debug {
+		logger = zap.Must(zap.NewDevelopment())
+	} else {
+		logger = zap.Must(zap.NewProduction())
 	}
 
 	ch, err := clickhouse.NewClickHouseAdapter(&clickhouse.Config{
@@ -107,7 +112,7 @@ func main() {
 		Table:           table,
 		ReadIgnoreLabel: readIgnoreLabel,
 		ReadIgnoreHints: readIgnoreHints,
-		Debug:           debug,
+		Logger:          slog.New(zapslog.NewHandler(logger.Core())),
 	})
 	if err != nil {
 		logger.Fatal("NewClickHouseAdapter", zap.Error(err))

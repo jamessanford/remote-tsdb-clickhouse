@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -14,9 +15,6 @@ import (
 var clickHouseIdentifier = regexp.MustCompile(`^[a-zA-Z_][0-9a-zA-Z_.]*$`)
 
 type ClickHouseAdapter struct {
-	// NOTE: We switched to sql.DB, but clickhouse.Conn appears to handle
-	// PrepareBatch and Query correctly with multiple goroutines, despite
-	// technically being a "driver.Conn"
 	db              *sql.DB
 	table           string
 	readIgnoreLabel string
@@ -33,7 +31,7 @@ type Config struct {
 	ReadIgnoreLabel string
 	ReadIgnoreHints bool
 
-	Debug bool
+	Logger *slog.Logger
 }
 
 func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
@@ -48,7 +46,7 @@ func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
 			Username: config.Username,
 			Password: config.Password,
 		},
-		Debug:       config.Debug,
+		Logger:      config.Logger,
 		DialTimeout: 5 * time.Second,
 		//MaxOpenConns:    16,
 		//MaxIdleConns:    1,
