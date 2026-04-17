@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -30,7 +31,7 @@ type Config struct {
 	ReadIgnoreLabel string
 	ReadIgnoreHints bool
 
-	Debug bool
+	Logger *slog.Logger
 }
 
 func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
@@ -45,7 +46,7 @@ func NewClickHouseAdapter(config *Config) (*ClickHouseAdapter, error) {
 			Username: config.Username,
 			Password: config.Password,
 		},
-		Debug:       config.Debug,
+		Logger:      config.Logger,
 		DialTimeout: 5 * time.Second,
 		//MaxOpenConns:    16,
 		//MaxIdleConns:    1,
