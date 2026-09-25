@@ -86,58 +86,29 @@ from incoming requests by default, see `--help`.
 I recommend querying through Prometheus `remote_read`, but it is possible to read the ClickHouse
 data directly from Grafana with the [ClickHouse Data Plugin](https://grafana.com/grafana/plugins/grafana-clickhouse-datasource/)
 
-Sample ClickHouse Data Plugin direct queries:
+Examples of using ClickHouse data plugin instead of `remote_read`:
 
 ```
-$perSecondColumns(arrayConcat([metric_name], labels), value)
+$__columns(updated_at,
+           arrayStringConcat(arrayConcat([metric_name], labels), ' '),
+           argMax(value, updated_at) AS value
+)
+FROM metrics.samples
+WHERE
+    metric_name='go_goroutines'
+```
+
+```
+$__perSecondColumns(updated_at,
+                    arrayStringConcat(arrayConcat([metric_name], labels), ' '),
+                    value
+)
 FROM metrics.samples
 WHERE
     metric_name='go_memstats_alloc_bytes_total'
     AND has(labels, 'job=omada')
 ```
 
-```
-$perSecondColumns(arrayConcat([metric_name], arrayFilter(x -> x LIKE 'name=%', labels)), value * 8)
-FROM metrics.samples
-WHERE
-    metric_name='omada_station_transmit_bytes_total'
-```
-
-```
-SELECT
-    $timeSeries as t,
-    metric_name,
-    labels,
-    max(value)
-FROM $table
-WHERE
-    metric_name='go_goroutines'
-    AND has(labels, 'job=omada')
-    AND $timeFilter
-GROUP BY
-    metric_name,
-    labels,
-    t
-ORDER BY t
-```
-
-```
-SELECT
-    t,
-    if(runningDifference(max_0) < 0, nan, runningDifference(max_0) / runningDifference(t / 1000)) AS max_0_Rate
-FROM
-(
-    SELECT
-        $timeSeries AS t,
-        max(value) as max_0
-    FROM $table
-    WHERE metric_name='go_memstats_alloc_bytes_total'
-    AND has(labels, 'job=omada')
-    AND $timeFilter
-    GROUP BY t
-    ORDER BY t
-)
-```
 
 ### Importing existing data
 

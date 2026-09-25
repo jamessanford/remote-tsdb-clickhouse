@@ -41,9 +41,6 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 				interval = q.Hints.RangeMs
 			}
 
-			// The hints seem optimistic, return more datapoints than asked for.
-			interval /= 2
-
 			// DateTime field requires seconds
 			interval /= 1000
 
@@ -54,7 +51,7 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 			timeField = fmt.Sprintf("toStartOfInterval(updated_at, INTERVAL %d second)", interval)
 		}
 
-		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, "+timeField+" AS t, max(value) as max_0 FROM "+ch.table+" WHERE "+sb.Where()+" GROUP BY metric_name, slb, t ORDER BY metric_name, slb, t", sb.Args()...)
+		rows, err := ch.db.QueryContext(ctx, "SELECT metric_name, arraySort(labels) as slb, "+timeField+" AS t, argMax(value, updated_at) as v FROM "+ch.table+" WHERE "+sb.Where()+" GROUP BY metric_name, slb, t ORDER BY metric_name, slb, t", sb.Args()...)
 		if err != nil {
 			return nil, err
 		}
