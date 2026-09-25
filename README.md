@@ -20,7 +20,7 @@ CREATE TABLE metrics.samples
     `metric_name` LowCardinality(String),
     `labels` Array(LowCardinality(String)),
     `value` Float64 CODEC(Gorilla, LZ4),
-    INDEX labelset (labels, metric_name) TYPE set(0) GRANULARITY 8192
+    INDEX labelset_bf labels TYPE bloom_filter(0.01) GRANULARITY 4
 )
 ENGINE = MergeTree
 ORDER BY (metric_name, labels, updated_at)
@@ -30,9 +30,6 @@ SETTINGS index_granularity = 8192
 This works well with over 100 billion metrics, even when searching by label,
 although cardinality of my dataset is very low at 16032 unique metrics+labels.
 Including label values, it takes approximately 1 byte per value for my dataset (1 gigabyte per billion metrics)
-
-The `labelset` skip index has a high granularity to try and keep the planning
-cost low as it may not be useful for typical queries.  Your mileage may vary.
 
 Storing and indexing the labels array directly is a naive implementation,
 setups with millions of unique metrics will need more advanced setups with
@@ -46,12 +43,12 @@ In your `prometheus.yaml`:
 remote_write:
  - url: "http://localhost:9131/write"
    queue_config:
-     max_samples_per_send: 10000
+     capacity: 400000
+     max_samples_per_send: 40000
+     batch_send_deadline: 1m
 ```
 
-ClickHouse prefers fewer writes with more samples per write.  Above a certain
-rate you may need to adjust Prometheus `capacity` and
-`max_samples_per_send` as per [Prometheus Remote Write Tuning](https://prometheus.io/docs/practices/remote_write/) if you see "Too many parts" errors or `prometheus_remote_storage_samples_pending` keeps growing.
+ClickHouse prefers fewer writes with more samples per write.  You may need to adjust `capacity`, `max_samples_per_send`, and `batch_send_deadline` as per [Prometheus Remote Write Tuning](https://prometheus.io/docs/practices/remote_write/) if you see "Too many parts" errors or `prometheus_remote_storage_samples_pending` keeps growing.
 
 ### Configure Prometheus remote reader
 
