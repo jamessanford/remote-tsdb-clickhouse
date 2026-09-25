@@ -41,9 +41,6 @@ func (ch *ClickHouseAdapter) ReadRequest(ctx context.Context, req *prompb.ReadRe
 				interval = q.Hints.RangeMs
 			}
 
-			// The hints seem optimistic, return more datapoints than asked for.
-			interval /= 2
-
 			// DateTime field requires seconds
 			interval /= 1000
 
